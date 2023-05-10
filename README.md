@@ -10,6 +10,6 @@
 
 6. Install the required dependencies in requirements.txt
 
-7. Rename `config_example.json` to `config.json` and enter the required information.
+7. Check the hardcoded values inside `main.py`.
 
-8. Run main.py
+8. Run `main.py`.
