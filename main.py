@@ -83,29 +83,36 @@ class Drive(GoogleDrive):
         return current_folder_id
 
 
-# Strips to only letters and digits
-def strip(str_):
-    return "".join([char for char in str(str_)
-                    if char in string.ascii_letters + string.digits])
-
-
 def get_m3u_path(path):
-    rel_path = path.relative_to(MUSICBEE_PLAYLIST_PATH)
+    if path.is_relative_to(MUSICBEE_PLAYLIST_PATH):
+        rel_path = path.relative_to(MUSICBEE_PLAYLIST_PATH)
+    else:
+        rel_path = path.relative_to(EXPORTED_PLAYLIST_PATH)
     if len(rel_path.parts) <= 2:
         return f"{rel_path.stem}.m3u"
     else:
         return f"{rel_path.parts[-2]} - {rel_path.stem}.m3u"
 
 
-def get_song_paths(path) -> list[pathlib.Path]:
+# Strips to only letters and digits
+def strip(str_):
+    return "".join([char for char in str(str_)
+                    if char in string.ascii_letters + string.digits])
+
+
+def get_songs(path: pathlib.Path) -> list[pathlib.Path]:
     # Incomprehensible, could break at any moment
     with open(path, errors='ignore') as file:
-        lines = [_ for _ in file.read().split('\x00') if ':\\' in _][1:]
-        paths = [[___ for ___ in __.split('ÿÿÿÿ')] for __ in lines]
-        paths = list(chain(*paths))[:-1]
-        paths = [path.split(':\\')[0][-1] + ':\\' + path.split(':\\')[1]
-                 for path in paths]
-        paths = [pathlib.Path(path) for path in paths]
+        if path.suffix == '.mbp':
+            lines = [_ for _ in file.read().split('\x00') if ':\\' in _][1:]
+            paths = [[___ for ___ in __.split('ÿÿÿÿ')] for __ in lines]
+            paths = list(chain(*paths))[:-1]
+            paths = [path.split(':\\')[0][-1] + ':\\' + path.split(':\\')[1]
+                     for path in paths]
+            paths = [pathlib.Path(path) for path in paths]
+        elif path.suffix == '.m3u':
+            paths = [pathlib.Path(path) for path in file.read().split('\n')
+                     if path]
 
     good_paths = []
     bad_paths = []
@@ -125,7 +132,9 @@ def get_song_paths(path) -> list[pathlib.Path]:
                 strip(path): path for path in bad_path.parent.glob('*.*')
             }
         if stripped_bad_path in stripped_to_path[bad_path.parent]:
-            good_paths.append(stripped_to_path[bad_path.parent][stripped_bad_path])
+            good_paths.append(
+                stripped_to_path[bad_path.parent][stripped_bad_path]
+            )
 
         else:
             logger.warning(f"{bad_path} was not found. "
@@ -144,8 +153,13 @@ music_folder = drive.create_folder(['Music'])
 songs_folder = drive.create_folder(['Music', 'songs'])
 
 playlists = {}
+# Add playlists
 for playlist_path in MUSICBEE_PLAYLIST_PATH.rglob('*.mbp'):
-    playlists[playlist_path] = get_song_paths(playlist_path)
+    playlists[playlist_path] = get_songs(playlist_path)
+# Add automatically exported autoplaylists
+for playlist_path in EXPORTED_PLAYLIST_PATH.rglob('*.m3u'):
+    playlists[playlist_path] = get_songs(playlist_path)
+
 all_songs = set(chain.from_iterable(playlists.values()))
 all_song_names = [song.name for song in all_songs]
 
@@ -169,6 +183,8 @@ for i, song in enumerate(songs_to_upload):
     logger.debug(f"Song {i+1} of {len(songs_to_upload)} to upload done."
                  f" {song.name} was uploaded.")
 
+# TODO: Check the content of the playlists then change them instead of deleting and recreating which is slow
+
 # Delete all previous playlists
 existing_playlists = drive.ListFile(parent_folder=music_folder, is_folder=False)
 for i, playlist in enumerate(existing_playlists):
@@ -180,7 +196,7 @@ for i, playlist in enumerate(existing_playlists):
 for i, (playlist_path, playlist_songs) in enumerate(playlists.items()):
     file = drive.CreateFile(title=get_m3u_path(playlist_path),
                             parent_folder=music_folder)
-    file_content = "\n".join([f"songs/{pathlib.Path(playlist_song).name}"
+    file_content = "\n".join([f"songs/{playlist_song.name}"
                              for playlist_song in playlist_songs])
     file.SetContentString(file_content)
     file.Upload()
