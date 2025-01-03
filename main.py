@@ -14,6 +14,22 @@ EXPORTED_PLAYLIST_PATH = pathlib.Path.home().joinpath(
 FOLDER_MIMETYPE = "application/vnd.google-apps.folder"
 
 
+def get_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    c_handler = logging.StreamHandler()
+    f_handler = logging.FileHandler("log.txt", encoding="utf8")
+    c_handler.setLevel(logging.DEBUG)
+    f_handler.setLevel(logging.DEBUG)
+    c_format = logging.Formatter("%(levelname)-8s %(message)s")
+    f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
+    c_handler.setFormatter(c_format)
+    f_handler.setFormatter(f_format)
+    logger.addHandler(c_handler)
+    logger.addHandler(f_handler)
+    return logger
+
+
 class Drive(GoogleDrive):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -131,10 +147,10 @@ def gen_m3u_content(songs: list[pathlib.Path]):
 
 
 def main(logger):
+    logger = get_logger()
     logger.info("Started.")
 
     gauth = GoogleAuth()
-    # TODO: Automatic authentication
     gauth.LocalWebserverAuth()
     drive = Drive(gauth)
 
@@ -216,18 +232,4 @@ def main(logger):
 
 
 if __name__ == "__main__":
-    # Logging setup
-    my_logger = logging.getLogger(__name__)
-    my_logger.setLevel(logging.DEBUG)
-    c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler("log.txt", encoding="utf8")
-    c_handler.setLevel(logging.DEBUG)
-    f_handler.setLevel(logging.DEBUG)
-    c_format = logging.Formatter("%(levelname)-8s %(message)s")
-    f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-    my_logger.addHandler(c_handler)
-    my_logger.addHandler(f_handler)
-
-    main(my_logger)
+    main()
