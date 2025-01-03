@@ -7,11 +7,25 @@ import string
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
+LOGGING_PATH = "main.log"
 MUSICBEE_PLAYLIST_PATH = pathlib.Path.home().joinpath("Music/Musicbee/Playlists")
 EXPORTED_PLAYLIST_PATH = pathlib.Path.home().joinpath(
     "Music/Musicbee/Exported Playlists"
 )
 FOLDER_MIMETYPE = "application/vnd.google-apps.folder"
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+c_handler = logging.StreamHandler()
+f_handler = logging.FileHandler(LOGGING_PATH, encoding="utf8")
+c_handler.setLevel(logging.DEBUG)
+f_handler.setLevel(logging.DEBUG)
+c_format = logging.Formatter("%(levelname)-8s %(message)s")
+f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
+c_handler.setFormatter(c_format)
+f_handler.setFormatter(f_format)
+logger.addHandler(c_handler)
+logger.addHandler(f_handler)
 
 
 class Drive(GoogleDrive):
@@ -68,22 +82,6 @@ class Drive(GoogleDrive):
         return current_folder_id
 
 
-def get_logger():
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler("log.txt", encoding="utf8")
-    c_handler.setLevel(logging.DEBUG)
-    f_handler.setLevel(logging.DEBUG)
-    c_format = logging.Formatter("%(levelname)-8s %(message)s")
-    f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
-    return logger
-
-
 def get_m3u_title(path: pathlib.Path):
     if path.is_relative_to(MUSICBEE_PLAYLIST_PATH):
         rel_path = path.relative_to(MUSICBEE_PLAYLIST_PATH)
@@ -96,13 +94,13 @@ def get_m3u_title(path: pathlib.Path):
 
 
 # Strips to only letters and digits
-def strip(str_: pathlib.Path):
+def strip(path: pathlib.Path):
     return "".join(
-        [char for char in str(str_) if char in string.ascii_letters + string.digits]
+        [char for char in str(path) if char in string.ascii_letters + string.digits]
     )
 
 
-def get_songs(path: pathlib.Path, logger: logging.Logger = None) -> list[pathlib.Path]:
+def get_songs(path: pathlib.Path) -> list[pathlib.Path]:
     # Incomprehensible, could break at any moment
     with open(path, errors="ignore") as file:
         if path.suffix == ".mbp":
@@ -135,8 +133,7 @@ def get_songs(path: pathlib.Path, logger: logging.Logger = None) -> list[pathlib
             }
         if stripped_bad_path in stripped_to_path[bad_path.parent]:
             good_paths.append(stripped_to_path[bad_path.parent][stripped_bad_path])
-
-        elif logger:
+        else:
             logger.warning(f"{bad_path} was not found. It was located in {path}")
 
     return good_paths
@@ -146,8 +143,7 @@ def gen_m3u_content(songs: list[pathlib.Path]):
     return "\n".join([f"songs/{song.name}" for song in songs])
 
 
-def main(logger):
-    logger = get_logger()
+def main():
     logger.info("Started.")
 
     gauth = GoogleAuth()

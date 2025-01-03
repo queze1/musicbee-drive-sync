@@ -212,8 +212,6 @@ dmypy.json
 cython_debug/
 .idea
 
-log.txt
-song_id_cache.json
+*.log
 client_secret*
-keyfile*.json
-/config.json
+credentials.json
