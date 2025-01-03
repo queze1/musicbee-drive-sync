@@ -100,43 +100,78 @@ def strip(path: pathlib.Path):
     )
 
 
-def get_songs(path: pathlib.Path) -> list[pathlib.Path]:
-    # Incomprehensible, could break at any moment
-    with open(path, errors="ignore") as file:
-        if path.suffix == ".mbp":
-            lines = [_ for _ in file.read().split("\x00") if ":\\" in _][1:]
-            paths = [[___ for ___ in __.split("ÿÿÿÿ")] for __ in lines]
-            paths = list(chain(*paths))[:-1]
-            paths = [
-                path.split(":\\")[0][-1] + ":\\" + path.split(":\\")[1]
-                for path in paths
-            ]
-            paths = [pathlib.Path(path) for path in paths]
-        elif path.suffix == ".m3u":
-            paths = [pathlib.Path(path) for path in file.read().split("\n") if path]
+# https://gist.github.com/lempamo/6e8977065da593e372e45d4c628e7fc7
+def decode_from_7bit(data):
+    result = 0
+    for index, char in enumerate(data):
+        # byte_value = ord(char)
+        result |= (char & 0x7F) << (7 * index)
+        if char & 0x80 == 0:
+            break
+    return result
 
-    good_paths = []
-    bad_paths = []
+
+def read_int(bytes_):
+    return int.from_bytes(bytes_, byteorder="little", signed=True)
+
+
+def read_uint(bytes_):
+    return int.from_bytes(bytes_, byteorder="little")
+
+
+def read_str(file):
+    len_1 = file.read(1)
+    if read_uint(len_1) > 0x7F:
+        len_2 = file.read(1)
+        if read_uint(len_2) > 0x7F:
+            length = decode_from_7bit(
+                [read_uint(len_1), read_uint(len_2), read_uint(file.read(1))]
+            )
+        else:
+            length = decode_from_7bit([read_uint(len_1), read_uint(len_2)])
+    else:
+        length = read_uint(len_1)
+    if length == 0:
+        return ""
+    return file.read(length).decode("utf-8")
+
+
+def parse_mbp(path):
+    paths = []
+    with open(path, "rb") as file:
+        # Read magic number and header
+        file.read(4)
+        length = int.from_bytes(file.read(1))
+        file.read(length + 18)
+
+        while True:
+            # Read path
+            path = read_str(file)
+            if len(path) == 0:
+                break
+            paths.append(path)
+
+            # Read separator
+            file.read(4)
+    return paths
+
+
+def parse_m3u(path):
+    with open(path, encoding="utf-8") as file:
+        return [path for path in file.read().split("\n") if path]
+
+
+def get_songs(path) -> list[pathlib.Path]:
+    if path.suffix == ".mbp":
+        paths = parse_mbp(path)
+    elif path.suffix == ".m3u":
+        paths = parse_m3u(path)
+
+    paths = [pathlib.Path(path) for path in paths]
     for path in paths:
-        if path.exists():
-            good_paths.append(path)
-        else:
-            bad_paths.append(path)
-
-    # Fix up unicode errors by stripping them of anything except letters and digits and then matching them
-    stripped_to_path = {}
-    for bad_path in bad_paths:
-        stripped_bad_path = strip(bad_path)
-        if bad_path.parent not in stripped_to_path:
-            stripped_to_path[bad_path.parent] = {
-                strip(path): path for path in bad_path.parent.glob("*.*")
-            }
-        if stripped_bad_path in stripped_to_path[bad_path.parent]:
-            good_paths.append(stripped_to_path[bad_path.parent][stripped_bad_path])
-        else:
-            logger.warning(f"{bad_path} was not found. It was located in {path}")
-
-    return good_paths
+        if not path.exists():
+            logger.warning(f"{path} was not found.")
+    return paths
 
 
 def gen_m3u_content(songs: list[pathlib.Path]):
