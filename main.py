@@ -14,22 +14,6 @@ EXPORTED_PLAYLIST_PATH = pathlib.Path.home().joinpath(
 FOLDER_MIMETYPE = "application/vnd.google-apps.folder"
 
 
-def get_logger():
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    c_handler = logging.StreamHandler()
-    f_handler = logging.FileHandler("log.txt", encoding="utf8")
-    c_handler.setLevel(logging.DEBUG)
-    f_handler.setLevel(logging.DEBUG)
-    c_format = logging.Formatter("%(levelname)-8s %(message)s")
-    f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
-    c_handler.setFormatter(c_format)
-    f_handler.setFormatter(f_format)
-    logger.addHandler(c_handler)
-    logger.addHandler(f_handler)
-    return logger
-
-
 class Drive(GoogleDrive):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,6 +66,22 @@ class Drive(GoogleDrive):
             current_folder_id = next_folder["id"]
             self._folder_id_cache[part] = next_folder["id"]
         return current_folder_id
+
+
+def get_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    c_handler = logging.StreamHandler()
+    f_handler = logging.FileHandler("log.txt", encoding="utf8")
+    c_handler.setLevel(logging.DEBUG)
+    f_handler.setLevel(logging.DEBUG)
+    c_format = logging.Formatter("%(levelname)-8s %(message)s")
+    f_format = logging.Formatter("%(asctime)s %(levelname)-8s %(message)s")
+    c_handler.setFormatter(c_format)
+    f_handler.setFormatter(f_format)
+    logger.addHandler(c_handler)
+    logger.addHandler(f_handler)
+    return logger
 
 
 def get_m3u_title(path: pathlib.Path):
