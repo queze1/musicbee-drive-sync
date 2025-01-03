@@ -217,4 +217,3 @@ song_id_cache.json
 client_secret*
 keyfile*.json
 /config.json
-/run.bat
